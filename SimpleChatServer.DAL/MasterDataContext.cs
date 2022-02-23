@@ -5,10 +5,12 @@ namespace SimpleChatServer.DAL
 {
     public class MasterDataContext : DbContext
     {
-        private string m_connectionString;
+        private readonly string m_connectionString;
         
         public DbSet<User> Users { get; set; }
         public DbSet<Chat> Chats { get; set; }
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<ChatUsersRole> ChatUsersRoles { get; set; }
 
         public MasterDataContext(string connectionString)
         {
@@ -22,22 +24,7 @@ namespace SimpleChatServer.DAL
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            var uInfEntityBuilder = modelBuilder.Entity<User>();
-            
-            uInfEntityBuilder.HasKey(uInf => uInf.Id)
-                .HasName("PK_UsersInfos_Id");
-
-            uInfEntityBuilder.Property(uInf => uInf.Name)
-                .HasColumnType("nvarchar")
-                .HasMaxLength(40);
-
-            uInfEntityBuilder.Property(uInf => uInf.Bio)
-                .HasColumnType("nvarchar")
-                .HasMaxLength(100);
-
-            uInfEntityBuilder.Property("Created")
-                .HasColumnType("DateTime")
-                .ValueGeneratedOnAdd();
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(MasterDataContext).Assembly);
         }
 
         public override int SaveChanges()

@@ -12,6 +12,7 @@ namespace SimpleChatServer.Core.SerializationResolvers
         {
             writer.Write(data.Id);
             writer.Write(data.Name);
+            writer.Write(data.Bio);
         }
 
         public void Serialize(BinaryWriter writer, object data)
@@ -26,7 +27,7 @@ namespace SimpleChatServer.Core.SerializationResolvers
 
         public User Deserialize(BinaryReader reader)
         {
-            return new User(reader.ReadInt32()) { Name = reader.ReadString() };
+            return new User(reader.ReadInt64(), reader.ReadString(), reader.ReadString());
         }
     }
 }

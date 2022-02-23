@@ -8,6 +8,7 @@ namespace SimpleChatServer.DAL.Models
         public string Name { get; set; }
         public string Bio { get; set; }
 
-        public IEnumerable<Chat> Chats { get; set; }
+        // public IEnumerable<Chat> Chats { get; set; }
+        // public IEnumerable<Message> Messages { get; set; }
     }
 }

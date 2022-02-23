@@ -19,7 +19,7 @@ namespace SimpleChatServer.Services.StaticMappableServices
 
             var userMaxId = GetUserMaxId() + 1;
             
-            s_users.Add(userMaxId, new ServerUser(client, new User(userMaxId) { Name = registrationInfo.Name }));
+            s_users.Add(userMaxId, new ServerUser(client, new User(userMaxId, registrationInfo.Name, registrationInfo.BIO) ));
 
             return Task.FromResult(ActionResponse.VoidResponse);
         }

@@ -4,16 +4,17 @@ using SimpleChatServer.Core.Services;
 namespace SimpleChatServer.Core.Models
 {
     [Serializable]
-    public class User : ISender
+    public class User
     {
-        public User() : this(-1)  { }
-        public User(long id)
+        public User(long id, string name, string bio)
         {
             Id = id;
-            Name = string.Empty;
+            Name = name;
+            Bio = bio;
         }
-
+        
         public long Id { get; init; }
         public string Name { get; set; }
+        public string Bio { get; set; }
     }
 }

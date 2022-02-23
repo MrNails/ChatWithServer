@@ -12,7 +12,7 @@ namespace SimpleChatServer.Core.Models
 {
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public sealed class Chat
+    public class Chat
     {
         private long m_id;
         private User[] m_users;

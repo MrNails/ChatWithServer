@@ -20,7 +20,7 @@ namespace SimpleChatServer.ConsoleUI
 
             Console.WriteLine("Input your name: ");
             var name = Console.ReadLine();
-            var registrInfo = new RegistrationInfo(name);
+            // var registrInfo = new RegistrationInfo(name);
             
             
             Console.WriteLine("User id: ");
@@ -28,7 +28,7 @@ namespace SimpleChatServer.ConsoleUI
 
             int count = 0;
 
-            await Sender.SendObjectAsync(_client, registrInfo, RegistrationInfoSerializator.Serializator);
+            // await Sender.SendObjectAsync(_client, registrInfo, RegistrationInfoSerializator.Serializator);
 
             while (!_exit)
             {

@@ -37,7 +37,7 @@ namespace SimpleChatServer
         {
             m_users = new List<ServerUser>() { owner };
             m_messages = new List<Message>();
-            m_chatUser = new User(-1);
+            m_chatUser = new User(-1, string.Empty, string.Empty);
             m_usersRoles = new Dictionary<long, Role>() { { -1, Role.Server }, { owner.UserInfo.Id, Role.Owner } };
 
             m_readOnlyUsers = new ReadOnlyCollection<ServerUser>(m_users);
