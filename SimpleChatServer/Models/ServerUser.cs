@@ -1,9 +1,9 @@
 ﻿using System.Net.Sockets;
-using SimpleChatServer.Core.Models;
+using SimpleChatServer.DAL.Models;
 
-namespace SimpleChatServer
+namespace SimpleChatServer.Models
 {
-    public readonly struct ServerUser
+    internal class ServerUser
     {
         private readonly TcpClient m_userClient;
         private readonly User m_userInfo;

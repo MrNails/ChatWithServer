@@ -15,11 +15,5 @@ internal class ChatConfiguration : IEntityTypeConfiguration<Chat>
             .HasColumnType("nvarchar")
             .HasMaxLength(50)
             .IsRequired();
-
-        builder.Property("Created")
-            .HasColumnType("datetime");
-
-        builder.Property("Modified")
-            .HasColumnType("datetime");
     }
 }

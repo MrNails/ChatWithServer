@@ -19,7 +19,8 @@ namespace SimpleChatServer.Core.SerializationResolvers
         public ActionResponse Deserialize(BinaryReader reader)
         {
             var result = ActionResponse.VoidResponse;
-            
+
+            var returnCode = (ReturnCode)reader.ReadInt32();
             var returnTypeName = reader.ReadString();
             var typeName = reader.ReadString();
 
@@ -35,13 +36,13 @@ namespace SimpleChatServer.Core.SerializationResolvers
                     elems[i] = serializator.Deserialize(reader);
                 }
 
-                result = new ActionResponse(returnTypeName, elems);
+                result = new ActionResponse(returnTypeName, elems, returnCode);
             }
             else
             {
                 var serializator = Utilities.Serializators[reader.ReadString()];
                 
-                result = new ActionResponse(returnTypeName, serializator.Deserialize(reader));
+                result = new ActionResponse(returnTypeName, serializator.Deserialize(reader), returnCode);
             }
 
             return result;
@@ -49,6 +50,7 @@ namespace SimpleChatServer.Core.SerializationResolvers
 
         public void Serialize(BinaryWriter writer, ActionResponse data)
         {
+            writer.Write((int)data.ReturnCode);
             writer.Write(data.ReturnTypeName);
 
             if (data.Result is IEnumerable enumerable)

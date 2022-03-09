@@ -1,26 +1,24 @@
 ﻿#nullable enable
 using System;
-using System.Globalization;
 using System.IO;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 using SimpleChatServer.Core.Models;
 using SimpleChatServer.Core.SerializationResolvers;
 using SimpleChatServer.Core.Services;
-using SimpleChatServer.Services;
-using SimpleChatServer.Services.StaticMappableServices;
-using Action = SimpleChatServer.Core.Models.Action;
+using SimpleChatServer.Core.Services.Handlers;
+using SimpleChatServer.DAL;
 
-namespace SimpleChatServer
+namespace SimpleChatServer.Services.Handlers
 {
     public class ServerClientHandler
     {
         private TcpClient m_client;
+        // private MasterDataContext m_dbContext;
 
         public ServerClientHandler(TcpClient client)
         {
             m_client = client;
+            // m_dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
         }
 
         public async void Process()
@@ -46,7 +44,11 @@ namespace SimpleChatServer
 
                     memoryStream.Seek(0, SeekOrigin.Begin);
 
-                    var response = await HandleReceivedData(transmitObject, dataReader);
+                    var response = ActionResponse.VoidResponse;
+                    IRequestHandler? requestHandler = null;
+                    
+                    if (Server.ServerData.Handlers.TryGetValue(transmitObject.TransmitType, out requestHandler))
+                        response = await requestHandler.HandleAsync(dataReader, m_client);
 
                     memoryStream.SetLength(0);
 
@@ -56,9 +58,7 @@ namespace SimpleChatServer
                     } while (stream.DataAvailable);
 
                     if (response != ActionResponse.VoidResponse)
-                    {
-                        await Sender.SendObjectAsync(m_client, response, ActionResponseSerializator.Serializator, transmitObject.Id);
-                    }
+                        await Sender.SendObjectAsync(m_client, response, ActionResponseSerializator.Serializator, transmitObject.Id); 
                 }
             }
             catch (Exception e)
@@ -73,35 +73,8 @@ namespace SimpleChatServer
                 stream?.Close();
                 reader?.Close();
                 memoryStream.Close();
+                // m_dbContext.Dispose();
             }
-        }
-
-        private Task<ActionResponse> HandleReceivedData(TransmitObject obj, BinaryReader dataReader)
-        {
-            switch (obj.TransmitType)
-            {
-                case "SimpleChatServer.Core.Models.Message":
-                    var message = MessageSerializator.Serializator.Deserialize(dataReader);
-                    var fromUser = UserManager.GetUserById(message.FromUser);
-                    ChatManager.SendMessageAsync(message);
-
-                    Console.WriteLine(
-                        $"[{message.SendDate.ToString(CultureInfo.InvariantCulture)}] {fromUser.UserInfo.Name}: {message.Content}");
-                    break;
-                case "SimpleChatServer.Core.Models.RegistrationInfo":
-                    var registrationInfo = RegistrationInfoSerializator.Serializator.Deserialize(dataReader);
-
-                    UserManager.CreateUser(registrationInfo, m_client);
-                    break;
-                case "SimpleChatServer.Core.Models.Action":
-                    var action = ActionSerializator.Serializator.Deserialize(dataReader);
-                    
-                    return ActionHandler.PerformAction(action);
-                default:
-                    break;
-            }
-
-            return Task.FromResult(ActionResponse.VoidResponse);
         }
     }
 }

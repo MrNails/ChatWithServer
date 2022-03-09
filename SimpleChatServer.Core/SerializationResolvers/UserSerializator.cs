@@ -27,7 +27,7 @@ namespace SimpleChatServer.Core.SerializationResolvers
 
         public User Deserialize(BinaryReader reader)
         {
-            return new User(reader.ReadInt64(), reader.ReadString(), reader.ReadString());
+            return new User(reader.ReadInt32(), reader.ReadString()) { Bio = reader.ReadString() }; 
         }
     }
 }

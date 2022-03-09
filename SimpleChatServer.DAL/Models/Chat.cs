@@ -4,8 +4,11 @@ namespace SimpleChatServer.DAL.Models
 {
     public class Chat
     {
-        public long Id { get; set; }
+        public int Id { get; set; }
         public string Name { get; set; }
+        
+        public DateTime Created { get; set; }
+        public DateTime Modified { get; set; }
 
         // public IEnumerable<User> Users { get; set; }
         //

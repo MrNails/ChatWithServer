@@ -4,9 +4,9 @@ using SimpleChatServer.DAL.Models;
 
 namespace SimpleChatServer.DAL.Configurations;
 
-internal class ChatUsersRolesConfiguration : IEntityTypeConfiguration<ChatUsersRole>
+internal class ChatUsersRolesConfiguration : IEntityTypeConfiguration<ChatUserRole>
 {
-    public void Configure(EntityTypeBuilder<ChatUsersRole> builder)
+    public void Configure(EntityTypeBuilder<ChatUserRole> builder)
     {
         builder.HasKey(b => new { b.ChatId, b.UserId })
             .HasName("PK_ChatUsersRoles_ChatIdUserId");

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SimpleChatServer.DAL.Models;
 
@@ -11,20 +12,13 @@ internal class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(uInf => uInf.Id)
             .HasName("PK_UsersInfos_Id");
 
-        builder.Property(uInf => uInf.Name)
+        builder.Property(uInf => uInf.Login)
             .HasColumnType("nvarchar")
             .HasMaxLength(40);
-
-        builder.Property(uInf => uInf.Bio)
-            .HasColumnType("nvarchar")
-            .HasMaxLength(100);
-
-        builder.Property("Created")
-            .HasColumnType("DateTime")
-            .ValueGeneratedOnAdd();
-
-        builder.Property("Modified")
-            .HasColumnType("DateTime");
+        
+        // builder.Property<string>("Password")
+        //     .HasColumnType("nvarchar")
+        //     .HasMaxLength(64);
 
         // builder.HasMany(u => u.Chats)
         //     .WithMany(c => c.Users);

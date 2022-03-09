@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Serilog;
+using SimpleChatServer.Core.Models;
 
 namespace SimpleChatServer.Services.Extensions
 {

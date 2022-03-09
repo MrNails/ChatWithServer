@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.2" />
       <PackageReference Include="Serilog" Version="2.11.0-dev-01371" />
       <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
     </ItemGroup>
@@ -15,6 +16,12 @@
     <ItemGroup>
       <ProjectReference Include="..\SimpleChatServer.Core\SimpleChatServer.Core.csproj" />
       <ProjectReference Include="..\SimpleChatServer.DAL\SimpleChatServer.DAL.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="appsettings.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

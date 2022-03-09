@@ -6,15 +6,31 @@ namespace SimpleChatServer.Core.Models
     [Serializable]
     public class User
     {
-        public User(long id, string name, string bio)
+        private string m_name;
+
+        public User(int id, string name)
         {
             Id = id;
             Name = name;
-            Bio = bio;
         }
         
-        public long Id { get; init; }
-        public string Name { get; set; }
-        public string Bio { get; set; }
+        public int Id { get; init; }
+
+        public string Name
+        {
+            get => m_name;
+            set
+            {
+                if (string.IsNullOrEmpty(value))
+                    throw new ArgumentException($"{nameof(value)} cannot be empty");
+
+                if (value.Length is < 8 or > 32)
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                
+                m_name = value;
+            }
+        }
+
+        public string? Bio { get; set; }
     }
 }

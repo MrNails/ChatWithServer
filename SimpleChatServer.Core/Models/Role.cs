@@ -1,6 +1,6 @@
-﻿namespace SimpleChatServer.Core.Services
+﻿namespace SimpleChatServer.Core.Models
 {
-    public enum Role
+    public enum Role : byte
     {
         Server,
         Owner,

@@ -1,22 +1,18 @@
-﻿namespace SimpleChatServer.DAL.Models;
+﻿using SimpleChatServer.Core.Models;
 
-public enum MessageType
-{
-    Text,
-    Image
-}
+namespace SimpleChatServer.DAL.Models;
 
 public class Message
 {
     /// <summary>
     /// Message Id
     /// </summary>
-    public ulong MessageId { get; set; }
+    public int MessageId { get; set; }
 
     /// <summary>
     /// Chat, where this message located
     /// </summary>
-    public long ChatId { get; set; }
+    public int ChatId { get; set; }
     
     /// <summary>
     /// Chat, where this message located
@@ -41,12 +37,12 @@ public class Message
     /// <summary>
     /// Date of message modified
     /// </summary>
-    public DateTime Modified { get; set; }
+    public DateTime? Modified { get; set; }
     
     /// <summary>
     /// From User
     /// </summary>
-    public long FromUserId { get; set; }
+    public int FromUserId { get; set; }
     
     /// <summary>
     /// From User

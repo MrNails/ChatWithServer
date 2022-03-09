@@ -33,7 +33,7 @@ namespace SimpleChatServer.ConsoleUI
             while (!_exit)
             {
                 var text = Console.ReadLine();
-                var message = new Message(count, id, text, DateTime.Now, -1);
+                var message = new Message(count, id, text, DateTime.Now, 0, MessageType.Text);
 
                 //TODO: Complete response handling.  Implement join to chat. Implement id return after create user and chat. 
                 // Sender.SendObjectAsync(_client, );

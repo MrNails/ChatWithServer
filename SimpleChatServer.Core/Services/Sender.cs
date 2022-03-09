@@ -12,44 +12,42 @@ namespace SimpleChatServer.Core.Services
     public static class Sender
     {
         /// <summary>
-        /// Structure with streams for send data for client.
+        /// Class with streams for send data for client.
         /// </summary>
-        private readonly struct ObjectSendData
+        private class ObjectSendData
         {
-            public ObjectSendData(TcpClient attachedClient, MemoryStream dataStream, MemoryStream transmitObjStream, 
+            public ObjectSendData(MemoryStream dataStream, MemoryStream transmitObjStream, 
                                   BinaryWriter dataWriter, BinaryWriter transmitObjWriter)
             {
                 DataStream = dataStream;
                 TransmitObjStream = transmitObjStream;
                 DataWriter = dataWriter;
                 TransmitObjWriter = transmitObjWriter;
-                AttachedClient = attachedClient;
             }
-
-            public TcpClient AttachedClient { get; }
+            
             public MemoryStream DataStream { get; }
             public MemoryStream TransmitObjStream { get; }
             public BinaryWriter DataWriter { get; }
             public BinaryWriter TransmitObjWriter { get; }
         }
 
-        private static readonly List<ObjectSendData> _objectSendDatas = new List<ObjectSendData>();
+        private static readonly Dictionary<TcpClient, ObjectSendData> _objectSendDatas = new  Dictionary<TcpClient, ObjectSendData>();
 
         public static async Task<Guid> SendObjectAsync<T>(TcpClient client, T data, ISerializator<T> resolver)
         {
-            var sendData = _objectSendDatas.FirstOrDefault(d => d.AttachedClient == client);
-
-            if (sendData.AttachedClient == null)
+            ObjectSendData sendData = null;
+            
+            if (_objectSendDatas.TryGetValue(client, out sendData))
             {
                 var tempDataStream = new MemoryStream();
                 var tempTransmitObjStream = new MemoryStream();
                 var tempDataWriter = new BinaryWriter(tempDataStream);
                 var tempTransmitObjWriter = new BinaryWriter(tempTransmitObjStream);
 
-                sendData = new ObjectSendData(client, tempDataStream, tempTransmitObjStream, tempDataWriter,
-                    tempTransmitObjWriter);
+                sendData = new ObjectSendData(tempDataStream, tempTransmitObjStream, 
+                    tempDataWriter, tempTransmitObjWriter);
                 
-                _objectSendDatas.Add(sendData);
+                _objectSendDatas.Add(client, sendData);
             }
             
             var dataStream = sendData.DataStream;
@@ -87,19 +85,19 @@ namespace SimpleChatServer.Core.Services
         
         public static Task SendObjectAsync<T>(TcpClient client, T data, ISerializator<T> resolver, Guid msgId)
         {
-            var sendData = _objectSendDatas.FirstOrDefault(d => d.AttachedClient == client);
-
-            if (sendData.AttachedClient == null)
+            ObjectSendData sendData = null;
+            
+            if (_objectSendDatas.TryGetValue(client, out sendData))
             {
                 var tempDataStream = new MemoryStream();
                 var tempTransmitObjStream = new MemoryStream();
                 var tempDataWriter = new BinaryWriter(tempDataStream);
                 var tempTransmitObjWriter = new BinaryWriter(tempTransmitObjStream);
 
-                sendData = new ObjectSendData(client, tempDataStream, tempTransmitObjStream, tempDataWriter,
-                    tempTransmitObjWriter);
+                sendData = new ObjectSendData(tempDataStream, tempTransmitObjStream, 
+                    tempDataWriter, tempTransmitObjWriter);
                 
-                _objectSendDatas.Add(sendData);
+                _objectSendDatas.Add(client, sendData);
             }
             
             var dataStream = sendData.DataStream;

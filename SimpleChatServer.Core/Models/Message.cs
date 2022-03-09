@@ -5,30 +5,24 @@ namespace SimpleChatServer.Core.Models
 {
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public readonly struct Message
+    public class Message
     {
-        public Message(long id, long fromUser, string content, DateTime sendDate, long inChat)
+        public Message(int id, int fromUser, string content, DateTime sendDate, int inChat, MessageType messageType)
         {
             Id = id;
             FromUser = fromUser;
             Content = content;
             SendDate = sendDate;
             InChat = inChat;
+            MessageType = messageType;
         }
         
-        public long Id { get; }
+        public int Id { get; }
         public DateTime SendDate { get; }
         
-        public long FromUser { get; }
-        public long InChat { get; }
+        public int FromUser { get; }
+        public int InChat { get; }
+        public MessageType MessageType { get; }
         public string Content { get; }
-
-        public int GetObjectSize()
-        {
-            unsafe
-            {
-                return sizeof(int) * 3 + sizeof(DateTime) + Content.Length * sizeof(char);
-            }
-        }
     }
 }

@@ -13,17 +13,10 @@ namespace SimpleChatServer.Core.SerializationResolvers
         public void Serialize(BinaryWriter writer, Chat data)
         {
             writer.Write(data.Id);
-            writer.Write(data.Users.Length);
 
-            for (int i = 0; i < data.Users.Length; i++)
-                UserSerializator.Serializator.Serialize(writer, data.Users[i]);
-
-            writer.Write(data.UsersRoles.Count);
-            foreach (var userRole in data.UsersRoles)
-            {
-                writer.Write(userRole.Key);
-                writer.Write((int)userRole.Value);
-            }
+            writer.Write(data.UsersAndRoles.Count);
+            foreach (var userRole in data.UsersAndRoles)
+                ChatUserRoleSerializator.Serializator.Serialize(writer, userRole);
 
             writer.Write(data.Name);
         }
@@ -41,21 +34,16 @@ namespace SimpleChatServer.Core.SerializationResolvers
         public Chat Deserialize(BinaryReader reader)
         {
             var id = reader.ReadInt32();
-            var usersLength = reader.ReadInt32();
-            var users = new User[usersLength];
-            var usersRoles = new Dictionary<int, Role>();
-
-            for (int i = 0; i < usersLength; i++)
-                users[i] = UserSerializator.Serializator.Deserialize(reader);
 
             var usersRolesLength = reader.ReadInt32();
+            var userRoles = new List<ChatUserRole>(usersRolesLength);
 
             for (int i = 0; i < usersRolesLength; i++)
-                usersRoles[reader.ReadInt32()] = (Role)reader.ReadInt32();
+                userRoles.Add(ChatUserRoleSerializator.Serializator.Deserialize(reader));
 
             var name = reader.ReadString();
 
-            return new Chat(id, users, new ReadOnlyDictionary<int, Role>(usersRoles), name);
+            return new Chat(id, userRoles, name);
         }
     }
 }

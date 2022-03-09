@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using SimpleChatServer.Core.Models;
 using Action = SimpleChatServer.Core.Models.Action;
 
-namespace SimpleChatServer.Services
+namespace SimpleChatServer.Services.Handlers
 {
     public static class ActionHandler
     {

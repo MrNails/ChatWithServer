@@ -1,48 +1,77 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using SimpleChatServer.Core.Models;
+using SimpleChatServer.Core.Services.Handlers;
+using SimpleChatServer.DAL;
+using SimpleChatServer.Models;
+using SimpleChatServer.Services.Exceptions;
+using SimpleChatServer.Services.Handlers;
 
 namespace SimpleChatServer
 {
-    public static class Server
+    internal static class Server
     {
-        private static readonly string _server = "127.0.0.1";
-        private static readonly int _port = 8888;
-        private static readonly TcpListener _listener = new TcpListener(IPAddress.Parse(_server), _port);
+        private static readonly string s_server;
+        private static readonly int s_port;
+        private static readonly TcpListener s_listener;
 
-        private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private static readonly CancellationTokenSource s_cancellationTokenSource;
 
-        private static bool _isActive = false;
+        private static readonly ServerData s_serverData;
         
-        private static List<User> _users = new List<User>();
+        private static bool s_isActive;
 
-        private static int count = 0;
-        private static int userCount = 0;
-        
-        public static bool IsActive => _isActive;
+        static Server()
+        {
+            s_server = "127.0.0.1";
+            s_port = 8888;
+            
+            s_listener = new TcpListener(IPAddress.Parse(s_server), s_port);
+            s_cancellationTokenSource = new CancellationTokenSource();
+
+            s_isActive = false;
+
+            s_serverData = new ServerData();
+
+            LoadRequestHandlers();
+        }
+
+        public static bool IsActive => s_isActive;
+
+        public static ServerData ServerData => s_serverData;
 
         public static Task Start()
         {
+            MasterDataContext mdContext = new MasterDataContext("Data Source=DESKTOP-U6JULRK;Initial Catalog=MasterData;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=False;ApplicationIntent=ReadOnly;MultiSubnetFailover=False");
+            // mdContext.Database.EnsureDeleted();
+            // mdContext.Database.EnsureCreated();
+            
+            // mdContext.Users.Add(new DAL.Models.User() { Name = "Test"});
+            mdContext.SaveChanges();
+            
             var task = new Task(() =>
             {
                 try
                 {
-                    _listener.Start();
+                    s_listener.Start();
                     
-                    _isActive = true;
+                    s_isActive = true;
+                    
+                    Serilog.Log.Logger.Information($"Server started on address: {s_server}:{s_port}");
 
-                    var token = _cancellationTokenSource.Token;
+                    var token = s_cancellationTokenSource.Token;
 
                     token.ThrowIfCancellationRequested();
 
                     while (true)
                     {
-                        var client = _listener.AcceptTcpClient();
+                        var client = s_listener.AcceptTcpClient();
 
                         token.ThrowIfCancellationRequested();
 
@@ -50,6 +79,8 @@ namespace SimpleChatServer
                         {
                             var server = new ServerClientHandler(client);
                             server.Process();
+                            
+                            Serilog.Log.Logger.Information($"Server started on address: {s_server}:{s_port}");
                             
                         }, TaskCreationOptions.LongRunning);
 
@@ -70,8 +101,8 @@ namespace SimpleChatServer
                 }
                 finally
                 {
-                    _listener.Stop();
-                    _isActive = false;
+                    s_listener.Stop();
+                    s_isActive = false;
                 }
             }, TaskCreationOptions.LongRunning);
 
@@ -82,10 +113,28 @@ namespace SimpleChatServer
 
         public static void RequestStop()
         {
-            _cancellationTokenSource.Cancel();
+            s_cancellationTokenSource.Cancel();
             
-            TcpClient client = new TcpClient(_server, _port);
+            TcpClient client = new TcpClient(s_server, s_port);
             client.Close();
+        }
+
+        private static void LoadRequestHandlers()
+        {
+            var assembly = typeof(Server).Assembly;
+            var handlerTypes = assembly.GetTypes()
+                .Where(type => type.IsAssignableTo(typeof(IRequestHandler)))
+                .ToList();
+
+            if (handlerTypes.Count == 0)
+                throw new ServerConfiguringException("Cannot configure request handlers. There are no request handlers.");
+
+            foreach (var handlerType in handlerTypes)
+            {
+                var handler = (IRequestHandler)Activator.CreateInstance(handlerType);
+                
+                s_serverData.Handlers.Add(handler.TypeHandler.FullName, handler);
+            }
         }
     }
 }

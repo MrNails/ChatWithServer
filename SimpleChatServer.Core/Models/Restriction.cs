@@ -1,4 +1,6 @@
-﻿namespace SimpleChatServer.DAL.Models;
+﻿using System;
+
+namespace SimpleChatServer.Core.Models;
 
 [Flags]
 public enum Restriction

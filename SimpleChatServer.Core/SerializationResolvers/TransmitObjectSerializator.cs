@@ -15,6 +15,7 @@ namespace SimpleChatServer.Core.SerializationResolvers
             writer.Write(data.ContentSize);
             writer.Write(idInBytes.Length);
             writer.Write(idInBytes);
+            writer.Write(data.SessionId);
             writer.Write(data.TransmitType);
             writer.Write(data.Content);
         }
@@ -34,10 +35,11 @@ namespace SimpleChatServer.Core.SerializationResolvers
             var contentSize = reader.ReadInt32();
             var idLength = reader.ReadInt32();
             var id = reader.ReadBytes(idLength);
+            var sessionId = reader.ReadString();
             var transmitType = reader.ReadString();
             var content = reader.ReadBytes(contentSize);
 
-            return new TransmitObject(transmitType, content, contentSize, new Guid(id));
+            return new TransmitObject(transmitType, content, contentSize, new Guid(id), sessionId);
         }
     }
 }

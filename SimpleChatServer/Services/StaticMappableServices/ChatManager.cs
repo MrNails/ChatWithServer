@@ -1,131 +1,199 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
-using System.Threading;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using SimpleChatServer.Core.Models;
 using SimpleChatServer.Core.Services;
 using SimpleChatServer.Core.Services.Exceptions;
+using SimpleChatServer.DAL;
+using SimpleChatServer.Models;
+using SimpleChatServer.Services.Extensions;
+using Chat = SimpleChatServer.Models.Chat;
+using CoreChat = SimpleChatServer.Core.Models.Chat;
 
 namespace SimpleChatServer.Services.StaticMappableServices
 {
     public static class ChatManager
     {
-        private static readonly Dictionary<long, Chat> s_chats = new Dictionary<long, Chat>();
+        private static readonly Dictionary<int, Chat> s_chats = new Dictionary<int, Chat>();
 
-        private static int chatIdCount = 0;
-        
         [MapAction]
-        public static Task<ActionResponse> CreateChatAsync(string chatName, ServerUser owner)
+        public static async Task<ActionResponse> CreateChatAsync(string chatName, string creatorSID)
         {
-            var newChat = new Chat(++chatIdCount, owner, chatName);
+            if (chatName.Length < Utilities.ChatRestriction.MinNameLength)
+                return new ActionResponse(typeof(CoreChat).FullName, null, ReturnCode.ChatNameLengthLessThanMinLength);
+
+            await using var dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
+
+            var existsSession = await dbContext.Sessions.FirstOrDefaultAsync(s => s.Token == creatorSID);
+
+            if (existsSession == null)
+                return new ActionResponse(typeof(CoreChat).FullName, null, ReturnCode.NotAuthorized);
+
+            var existsChat = await dbContext.Chats.FirstOrDefaultAsync(c => c.Name == chatName);
+
+            if (existsChat != null)
+                return new ActionResponse(typeof(CoreChat).FullName, null, ReturnCode.ChatWithSameNameExists);
+
+            var chatNameParam = new SqlParameter("@chatName", chatName) { Size = 50 };
+            var creatorIdParam = new SqlParameter("@creatorId", existsSession.UserId);
+            var chatIdParam = new SqlParameter { ParameterName = "@chatId", Direction = ParameterDirection.Output };
+
+            var affectedRows = await dbContext.Database.ExecuteSqlRawAsync(
+                $"exec {Constants.MasterDataDB}.dbo.proc_CreateChat @chatName, @creatorId, @chatId out",
+                new object[] { chatNameParam, creatorIdParam, chatIdParam });
+
+            var users = new Dictionary<int, TcpClient>
+                { { existsSession.UserId, UserManager.GetUserOrDefault(existsSession.UserId).UserClient } };
+            var newChat = new Chat((int)chatIdParam.Value, users);
+            var chatUserRole = new SimpleChatServer.DAL.Models.ChatUserRole(newChat.Id, existsSession.UserId);
+            var coreChat = new CoreChat(newChat.Id,
+                new List<ChatUserRole> { chatUserRole.AsCoreChatUserRole() },
+                chatName);
 
             s_chats.Add(newChat.Id, newChat);
 
-            return Task.FromResult(new ActionResponse(typeof(Chat).FullName!, newChat));
+            dbContext.ChatUsersRoles.Add(chatUserRole);
+
+            await dbContext.SaveChangesAsync();
+
+            return new ActionResponse(typeof(CoreChat).FullName, coreChat, ReturnCode.OK);
         }
 
         [MapAction]
-        public static Task<ActionResponse> DeleteChatAsync(long chatId, long requesterId)
+        public static async Task<ActionResponse> DeleteChatAsync(int chatId, string requesterSID)
         {
-            var foundChat = GetChatById(chatId);
-            Role requesterRole;
+            await using var dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
 
-            if (foundChat != null && foundChat.UsersRoles.TryGetValue(requesterId, out requesterRole) && requesterRole == Role.Owner)
-            {
-                foundChat.DisconnectAll();
-                return Task.FromResult(new ActionResponse(typeof(bool).FullName!, s_chats.Remove(chatId)));
-            }
+            var existsSession = await dbContext.Sessions.FirstOrDefaultAsync(s => s.Token == requesterSID);
 
-            return Task.FromResult(new ActionResponse(typeof(bool).FullName!, false));
+            if (existsSession == null)
+                return new ActionResponse(typeof(void).FullName, null, ReturnCode.NotAuthorized);
+
+            var chat = await dbContext.Chats.FirstOrDefaultAsync(c => c.Id == chatId);
+
+            if (chat == null)
+                return new ActionResponse(typeof(void).FullName, null, ReturnCode.ChatNotExists);
+
+            dbContext.Chats.Remove(chat);
+
+            await dbContext.SaveChangesAsync();
+
+            return ActionResponse.VoidResponse;
         }
 
         [MapAction]
-        public static Task<ActionResponse> GetChatsByNameAsync(string chatName)
+        public static async Task<ActionResponse> GetChatsByNameAsync(string chatName)
         {
             if (string.IsNullOrEmpty(chatName))
-                return Task.FromResult(new ActionResponse(typeof(Chat[]).FullName!, Array.Empty<Chat>()));
+                return new ActionResponse(typeof(List<CoreChat>).FullName!, Enumerable.Empty<CoreChat>(),
+                    ReturnCode.ArgumentIsNull);
 
-            var resultArr = s_chats.Values.Where(chat => chat.Name == chatName || chat.Name.Contains(chatName))
-                                               .ToArray();
+            await using var dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
 
-            return Task.FromResult(new ActionResponse(typeof(Chat[]).FullName!, resultArr));
+            var resultArr = await dbContext.Chats.Where(chat => chat.Name == chatName || chat.Name.Contains(chatName))
+                .ToListAsync();
+
+            return new ActionResponse(typeof(List<CoreChat>).FullName!, resultArr, ReturnCode.OK);
         }
 
         [MapAction]
-        public static Task<ActionResponse> JoinToChatAsync(long chatId, ServerUser user)
+        public static async Task<ActionResponse> JoinToChatAsync(int chatId, string sessionId)
         {
             var foundChat = GetChatById(chatId);
 
             if (foundChat == default)
-                return Task.FromResult(new ActionResponse(typeof(Exception).FullName!, new ChatNotFoundException(chatId)));
+                return new ActionResponse(typeof(ChatUserRole).FullName!, null, ReturnCode.ChatNotExists);
 
-            return foundChat.JoinAsync(user).ContinueWith(res =>
+            await using var dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
+
+            var existsSession = await dbContext.Sessions.FirstOrDefaultAsync(s => s.Token == sessionId);
+
+            if (existsSession == null)
+                return new ActionResponse(typeof(ChatUserRole).FullName, null, ReturnCode.NotAuthorized);
+
+            var user = UserManager.GetUserOrDefault(existsSession.UserId);
+
+            var joinResult = await foundChat.JoinAsync(user.UserInfo, user.UserClient);
+
+            if (joinResult != ReturnCode.OK)
+                return new ActionResponse(typeof(ChatUserRole).FullName, null, joinResult);
+
+            var chatUserRole = new DAL.Models.ChatUserRole(chatId, existsSession.UserId)
             {
-                ActionResponse result = null;
-                if (res.IsFaulted)
-                    result = new ActionResponse(typeof(Exception).FullName!, res.Exception);
-                else if (res.IsCanceled)
-                    result = new ActionResponse(typeof(Exception).FullName!, new TaskCanceledException("Task was canceled."));
-                else
-                    result = ActionResponse.VoidResponse;
-                
-                return result;
-            });
+                Role = Role.User,
+                Restriction = Restriction.NoKicks | 
+                              Restriction.NoAddingAdmins | 
+                              Restriction.NoChangingChatInfo
+            };
+
+            dbContext.ChatUsersRoles.Add(chatUserRole);
+
+            await dbContext.SaveChangesAsync();
+
+            return ActionResponse.VoidResponse;
         }
 
         [MapAction]
-        public static Task<ActionResponse> LeaveFromChatAsync(long chatId, long userId)
+        public static async Task<ActionResponse> LeaveFromChatAsync(int chatId, string sessionId)
         {
             var foundChat = GetChatById(chatId);
 
-            if (foundChat == default)
-                return Task.FromResult(new ActionResponse(typeof(Exception).FullName!, new ChatNotFoundException(chatId)));
+            if (foundChat == null)
+                return new ActionResponse(typeof(void).FullName!, null, ReturnCode.ChatNotExists);
             
-            return foundChat.LeaveAsync(userId).ContinueWith(res =>
-            {
-                ActionResponse result = null;
-                if (res.IsFaulted)
-                    result = new ActionResponse(typeof(Exception).FullName!, res.Exception);
-                else if (res.IsCanceled)
-                    result = new ActionResponse(typeof(Exception).FullName!, new TaskCanceledException("Task was canceled."));
-                else
-                    result = ActionResponse.VoidResponse;
-                
-                return result;
-            });
+            await using var dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
+
+            var existsSession = await dbContext.Sessions.FirstOrDefaultAsync(s => s.Token == sessionId);
+
+            if (existsSession == null)
+                return new ActionResponse(typeof(void).FullName, null, ReturnCode.NotAuthorized);
+
+            var user = UserManager.GetUserOrDefault(existsSession.UserId);
+
+            var leaveResult = await foundChat.LeaveAsync(user.UserInfo);
+
+            if (leaveResult != ReturnCode.OK)
+                return new ActionResponse(typeof(void).FullName, null, leaveResult);
+            
+            dbContext.ChatUsersRoles.Remove(await dbContext.ChatUsersRoles.FirstOrDefaultAsync(cur => cur.UserId == existsSession.UserId && cur.ChatId == chatId));
+
+            await dbContext.SaveChangesAsync();
+            
+            return ActionResponse.VoidResponse;
         }
 
         [MapAction]
-        public static Task<ActionResponse> SendMessageAsync(in Message msg)
+        public static async Task<ActionResponse> SendMessageAsync(Message msg)
         {
             var foundChat = GetChatById(msg.InChat);
 
             if (foundChat == null)
-                return Task.FromResult(new ActionResponse(typeof(Exception).FullName!, new ChatNotFoundException(msg.InChat)));
+                return new ActionResponse(typeof(void).FullName!, null, ReturnCode.ChatNotExists);
 
-            return foundChat.SendMessageAsync(msg).ContinueWith(res =>
-            {
-                ActionResponse result = null;
-                if (res.IsFaulted)
-                    result = new ActionResponse(typeof(Exception).FullName!, res.Exception);
-                else if (res.IsCanceled)
-                    result = new ActionResponse(typeof(Exception).FullName!, new TaskCanceledException("Task was canceled."));
-                else
-                    result = ActionResponse.VoidResponse;
-                
-                return result;
-            });
+            await using var dbContext = new MasterDataContext(GlobalSettings.ConnectionStrings[Constants.MasterDataDB]);
+
+            var msgSentResult = await foundChat.SendMessageAsync(msg);
+            
+            if (msgSentResult != ReturnCode.OK)
+                return new ActionResponse(typeof(void).FullName!, null, msgSentResult);
+
+            dbContext.Messages.Add(msg.AsDALMessage());
+            
+            return ActionResponse.VoidResponse;
         }
 
-        private static long GetChatMaxId() => s_chats.Max(chat => chat.Key);
-
-        public static Chat? GetChatById(long chatId)
+        internal static Chat? GetChatById(int chatId)
         {
             Chat chat = null;
 
             s_chats.TryGetValue(chatId, out chat);
-            
+
             return chat;
         }
     }
